@@ -5,27 +5,30 @@ import (
 	"net"
 )
 
-var (
-	ErrClientHandshake = errors.New("client handshake error")
-)
+var ErrClientHandshake = errors.New("client handshake error")
 
 type WebSocketClient struct {
 	*WSConn
 	host string
 }
 
-func NewWebSocketClient(host string) (*WebSocketClient, error) {
-	conn, err := net.Dial("tcp", host)
-	if err != nil {
-		return nil, err
-	}
+func NewWebSocketClient(host string) *WebSocketClient {
 	return &WebSocketClient{
-		WSConn: NewWSConn(conn, true),
-		host:   host,
-	}, nil
+		host: host,
+	}
 }
 
-func (ws *WebSocketClient) Handshake() error {
+func (ws *WebSocketClient) Connect() error {
+	conn, err := net.Dial("tcp", ws.host)
+	if err != nil {
+		return err
+	}
+	ws.WSConn = NewWSConn(conn, true)
+
+	return ws.handshake()
+}
+
+func (ws *WebSocketClient) handshake() error {
 	handshake := "GET / HTTP/1.1\r\n" +
 		"Host: " + ws.host + "\r\n" +
 		"Upgrade: websocket\r\n" +

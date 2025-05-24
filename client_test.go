@@ -1,20 +1,16 @@
 package wsx
 
 import (
+	"log"
 	"testing"
 )
 
 const echoServerURL = "localhost:6970"
 
 func TestWebSocketClient(t *testing.T) {
-	client, err := NewWebSocketClient(echoServerURL)
-	if err != nil {
-		t.Fatalf("failed to create websocket client: %v", err)
-	}
-	defer client.Close()
-
-	if err := client.Handshake(); err != nil {
-		t.Fatalf("handshake failed: %v", err)
+	client := NewWebSocketClient(echoServerURL)
+	if err := client.Connect(); err != nil {
+		log.Fatal("failed to connect:", err)
 	}
 
 	msg := []byte("random data")
