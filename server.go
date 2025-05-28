@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"strings"
 )
 
 var ErrServerHandshake = errors.New("server handshake error")
@@ -29,7 +30,6 @@ func (ws *WebSocketServer) ListenAndServe() error {
 	ws.listener = ln
 
 	go ws.acceptLoop()
-
 	return nil
 }
 
@@ -39,14 +39,12 @@ func (ws *WebSocketServer) acceptLoop() {
 		if errors.Is(err, net.ErrClosed) {
 			return
 		}
-
 		if err != nil {
 			fmt.Println("error accepting connection:", err)
 			continue
 		}
 
 		wsconn := NewWSConn(conn, false)
-
 		go ws.handleConn(wsconn)
 	}
 }
@@ -54,8 +52,13 @@ func (ws *WebSocketServer) acceptLoop() {
 func (ws *WebSocketServer) handleConn(wsconn *WSConn) {
 	defer wsconn.Close()
 
-	err := ws.handshake(wsconn)
-	if err != nil {
+	if err := ws.handshake(wsconn); err != nil {
+		return
+	}
+
+	msg := []byte("random data")
+	op := OPCODE_TEXT
+	if err := wsconn.SendMessage(op, msg); err != nil {
 		return
 	}
 }
@@ -67,10 +70,24 @@ func (ws *WebSocketServer) handshake(wsconn *WSConn) error {
 		return err
 	}
 
+	headers := make(map[string]string)
+	for header := range strings.SplitSeq(string(buf), "\r\n") {
+		splitHeader := strings.SplitN(header, ":", 2)
+		if len(splitHeader) != 2 {
+			continue
+		}
+		headers[splitHeader[0]] = strings.Trim(splitHeader[1], " ")
+	}
+
+	secKey, ok := headers["Sec-WebSocket-Key"]
+	if !ok {
+		return ErrServerHandshake
+	}
+
 	handshake := "HTTP/1.1 101 Switching Protocols\r\n" +
 		"Upgrade: websocket\r\n" +
 		"Connection: Upgrade\r\n" +
-		"Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=\r\n" +
+		"Sec-WebSocket-Accept: " + ws.genSecAccept(secKey) + "\r\n" +
 		"\r\n"
 
 	if _, err := wsconn.conn.Write([]byte(handshake)); err != nil {
