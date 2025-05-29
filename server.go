@@ -44,6 +44,7 @@ func (ws *WebSocketServer) acceptLoop() {
 			continue
 		}
 
+		fmt.Printf("Accepted connection: %v\n", conn.RemoteAddr())
 		wsconn := NewWSConn(conn, false)
 		go ws.handleConn(wsconn)
 	}

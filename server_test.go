@@ -9,22 +9,32 @@ const serverURL = "localhost:6971"
 
 func TestWebSocketServer(t *testing.T) {
 	ws := NewWebSocketServer(serverURL)
-	ws.ListenAndServe()
+	err := ws.ListenAndServe()
+	if err != nil {
+		t.Errorf("failed to start server")
+	}
 
 	client := NewWebSocketClient(serverURL)
 	if err := client.Connect(); err != nil {
 		t.Errorf("failed to connect: %v", err)
 	}
 
-	time.Sleep(3000)
+	time.Sleep(500 * time.Millisecond)
 
-	resp, err := client.ReadMessage()
-	if err != nil {
-		t.Fatalf("failed to read message: %v", err)
+	var r string
+	for {
+		resp, err := client.ReadMessage()
+		if err != nil {
+			t.Fatalf("failed to read message: %v", err)
+		}
+		if resp != nil {
+			r = resp.Chunks.Payload.String()
+			break
+		}
 	}
 
 	msg := "random data"
-	if resp.Chunks.Payload.String() != msg {
-		t.Errorf("expected response %s, got %s", msg, resp.Chunks.Payload.String())
+	if r != msg {
+		t.Errorf("expected response %s, got %s", msg, r)
 	}
 }

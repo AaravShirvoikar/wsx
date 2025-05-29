@@ -1,6 +1,8 @@
 package wsx
 
 import (
+	"crypto/rand"
+	"encoding/base64"
 	"errors"
 	"net"
 )
@@ -10,6 +12,7 @@ var ErrClientHandshake = errors.New("client handshake error")
 type WebSocketClient struct {
 	*WSConn
 	host string
+	key  string
 }
 
 func NewWebSocketClient(host string) *WebSocketClient {
@@ -29,11 +32,15 @@ func (ws *WebSocketClient) Connect() error {
 }
 
 func (ws *WebSocketClient) handshake() error {
+	key := make([]byte, 16)
+	rand.Read(key)
+	ws.key = base64.StdEncoding.EncodeToString(key)
+
 	handshake := "GET / HTTP/1.1\r\n" +
 		"Host: " + ws.host + "\r\n" +
 		"Upgrade: websocket\r\n" +
 		"Connection: Upgrade\r\n" +
-		"Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n" +
+		"Sec-WebSocket-Key: " + ws.key + "\r\n" +
 		"Sec-WebSocket-Version: 13\r\n" +
 		"\r\n"
 
