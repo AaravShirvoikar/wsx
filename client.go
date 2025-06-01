@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"net"
+	"strings"
 )
 
 var ErrClientHandshake = errors.New("client handshake error")
@@ -49,12 +50,12 @@ func (ws *WebSocketClient) handshake() error {
 	}
 
 	buf := make([]byte, 1024)
-	n, err := ws.conn.Read(buf)
+	_, err := ws.conn.Read(buf)
 	if err != nil {
 		return err
 	}
 
-	if n < 2 || buf[n-2] != '\r' || buf[n-1] != '\n' {
+	if strings.HasSuffix(string(buf), "\r\n") {
 		return ErrClientHandshake
 	}
 

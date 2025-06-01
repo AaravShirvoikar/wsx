@@ -19,22 +19,16 @@ func TestWebSocketServer(t *testing.T) {
 		t.Errorf("failed to connect: %v", err)
 	}
 
-	time.Sleep(500 * time.Millisecond)
+	time.Sleep(100 * time.Millisecond)
 
-	var r string
-	for {
-		resp, err := client.ReadMessage()
-		if err != nil {
-			t.Fatalf("failed to read message: %v", err)
-		}
-		if resp != nil {
-			r = resp.Chunks.Payload.String()
-			break
-		}
+	resp, err := client.ReadMessage()
+	if err != nil {
+		t.Fatalf("failed to read message: %v", err)
 	}
 
-	msg := "random data"
-	if r != msg {
-		t.Errorf("expected response %s, got %s", msg, r)
+	respMsp := resp.Chunks.Payload.String()
+	expectedMsg := "random data"
+	if respMsp != expectedMsg {
+		t.Errorf("expected response %s, got %s", expectedMsg, respMsp)
 	}
 }

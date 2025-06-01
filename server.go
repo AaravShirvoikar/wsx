@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"time"
 )
 
 var ErrServerHandshake = errors.New("server handshake error")
@@ -62,6 +63,8 @@ func (ws *WebSocketServer) handleConn(wsconn *WSConn) {
 	if err := wsconn.SendMessage(op, msg); err != nil {
 		return
 	}
+
+	time.Sleep(100 * time.Millisecond)
 }
 
 func (ws *WebSocketServer) handshake(wsconn *WSConn) error {
