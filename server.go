@@ -1,13 +1,13 @@
 package wsx
 
 import (
+	"bufio"
 	"crypto/sha1"
 	"encoding/base64"
 	"errors"
 	"fmt"
 	"net"
 	"strings"
-	"time"
 )
 
 var ErrServerHandshake = errors.New("server handshake error")
@@ -36,11 +36,11 @@ func (ws *WebSocketServer) ListenAndServe() error {
 			break
 		}
 		if err != nil {
-			fmt.Println("error accepting connection:", err)
+			fmt.Printf("Error accepting connection: %v\n", err)
 			continue
 		}
 
-		fmt.Printf("Accepted connection: %v\n", conn.RemoteAddr())
+		fmt.Printf("Accepted connection from %v\n", conn.RemoteAddr())
 		wsconn := NewWSConn(conn, false)
 		go ws.handleConn(wsconn)
 	}
@@ -52,32 +52,54 @@ func (ws *WebSocketServer) handleConn(wsconn *WSConn) {
 	defer wsconn.Close()
 
 	if err := ws.handshake(wsconn); err != nil {
+		fmt.Printf("Failed to complete handshake with %v: %v\n", wsconn.conn.RemoteAddr(), err)
 		return
 	}
 
-	msg := []byte("random data")
-	op := OPCODE_TEXT
-	if err := wsconn.SendMessage(op, msg); err != nil {
-		return
-	}
+	fmt.Printf("Connection established with %v\n", wsconn.conn.RemoteAddr())
 
-	time.Sleep(100 * time.Millisecond)
+	for {
+		msg, err := wsconn.ReadMessage()
+		if err != nil {
+			if errors.Is(err, ErrSocketError) || errors.Is(err, ErrServerClose) {
+				fmt.Printf("Client %v closed connection\n", wsconn.conn.RemoteAddr())
+			} else {
+				fmt.Printf("Error reading message from %v: %v\n", wsconn.conn.RemoteAddr(), err)
+			}
+			break
+		}
+		msgStr := msg.Chunks.Payload.String()
+
+		fmt.Printf("Received message from %v: %s\n", wsconn.conn.RemoteAddr(), msgStr)
+
+		if err := wsconn.SendMessage(OPCODE_TEXT, []byte(msgStr)); err != nil {
+			fmt.Printf("Error sending echo to %v: %v\n", wsconn.conn.RemoteAddr(), err)
+			break
+		}
+
+		fmt.Printf("Echoed message back to %v\n", wsconn.conn.RemoteAddr())
+	}
 }
 
 func (ws *WebSocketServer) handshake(wsconn *WSConn) error {
-	buf := make([]byte, 1024)
-	_, err := wsconn.conn.Read(buf)
-	if err != nil {
-		return err
-	}
+	reader := bufio.NewReader(wsconn.conn)
 
 	headers := make(map[string]string)
-	for header := range strings.SplitSeq(string(buf), "\r\n") {
-		splitHeader := strings.SplitN(header, ":", 2)
-		if len(splitHeader) != 2 {
-			continue
+	for {
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			return err
 		}
-		headers[splitHeader[0]] = strings.Trim(splitHeader[1], " ")
+
+		line = strings.TrimSpace(line)
+		if line == "" {
+			break
+		}
+
+		parts := strings.SplitN(line, ":", 2)
+		if len(parts) == 2 {
+			headers[strings.TrimSpace(parts[0])] = strings.TrimSpace(parts[1])
+		}
 	}
 
 	secKey, ok := headers["Sec-WebSocket-Key"]
@@ -85,13 +107,15 @@ func (ws *WebSocketServer) handshake(wsconn *WSConn) error {
 		return ErrServerHandshake
 	}
 
-	handshake := "HTTP/1.1 101 Switching Protocols\r\n" +
-		"Upgrade: websocket\r\n" +
-		"Connection: Upgrade\r\n" +
-		"Sec-WebSocket-Accept: " + ws.genSecAccept(secKey) + "\r\n" +
-		"\r\n"
+	var handshake strings.Builder
+	handshake.WriteString("HTTP/1.1 101 Switching Protocols\r\n")
+	handshake.WriteString("Upgrade: websocket\r\n")
+	handshake.WriteString("Connection: Upgrade\r\n")
+	handshake.WriteString("Sec-WebSocket-Accept: ")
+	handshake.WriteString(ws.genSecAccept(secKey))
+	handshake.WriteString("\r\n\r\n")
 
-	if _, err := wsconn.conn.Write([]byte(handshake)); err != nil {
+	if _, err := wsconn.conn.Write([]byte(handshake.String())); err != nil {
 		return err
 	}
 

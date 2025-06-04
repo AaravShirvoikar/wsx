@@ -1,6 +1,7 @@
 package wsx
 
 import (
+	"bufio"
 	"crypto/rand"
 	"encoding/base64"
 	"errors"
@@ -37,26 +38,41 @@ func (ws *WebSocketClient) handshake() error {
 	rand.Read(key)
 	ws.key = base64.StdEncoding.EncodeToString(key)
 
-	handshake := "GET / HTTP/1.1\r\n" +
-		"Host: " + ws.host + "\r\n" +
-		"Upgrade: websocket\r\n" +
-		"Connection: Upgrade\r\n" +
-		"Sec-WebSocket-Key: " + ws.key + "\r\n" +
-		"Sec-WebSocket-Version: 13\r\n" +
-		"\r\n"
+	var handshake strings.Builder
+	handshake.WriteString("GET / HTTP/1.1\r\n")
+	handshake.WriteString("Host: ")
+	handshake.WriteString(ws.host)
+	handshake.WriteString("\r\n")
+	handshake.WriteString("Upgrade: websocket\r\n")
+	handshake.WriteString("Connection: Upgrade\r\n")
+	handshake.WriteString("Sec-WebSocket-Key: ")
+	handshake.WriteString(ws.key)
+	handshake.WriteString("\r\n")
+	handshake.WriteString("Sec-WebSocket-Version: 13\r\n")
+	handshake.WriteString("\r\n")
 
-	if _, err := ws.conn.Write([]byte(handshake)); err != nil {
+	if _, err := ws.conn.Write([]byte(handshake.String())); err != nil {
 		return err
 	}
 
-	buf := make([]byte, 1024)
-	_, err := ws.conn.Read(buf)
+	reader := bufio.NewReader(ws.conn)
+	statusLine, err := reader.ReadString('\n')
 	if err != nil {
 		return err
 	}
 
-	if strings.HasSuffix(string(buf), "\r\n") {
+	if !strings.Contains(statusLine, "101") {
 		return ErrClientHandshake
+	}
+
+	for {
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			return err
+		}
+		if strings.TrimSpace(line) == "" {
+			break
+		}
 	}
 
 	return nil

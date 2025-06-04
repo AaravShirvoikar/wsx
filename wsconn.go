@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"io"
 	"math/rand"
 	"net"
 )
@@ -96,7 +97,7 @@ func (w *WSConn) sendFrame(fin bool, opcode Opcode, payload []byte) error {
 
 func (w *WSConn) readFrame() (*Frame, error) {
 	header := make([]byte, 2)
-	if _, err := w.conn.Read(header); err != nil {
+	if _, err := io.ReadFull(w.conn, header); err != nil {
 		return nil, ErrSocketError
 	}
 
@@ -124,13 +125,13 @@ func (w *WSConn) readFrame() (*Frame, error) {
 	var mask []byte
 	if header[1]&0x80 != 0 {
 		mask = make([]byte, 4)
-		if _, err := w.conn.Read(mask); err != nil {
+		if _, err := io.ReadFull(w.conn, mask); err != nil {
 			return nil, ErrSocketError
 		}
 	}
 
 	payload := make([]byte, payloadLen)
-	if _, err := w.conn.Read(payload); err != nil {
+	if _, err := io.ReadFull(w.conn, payload); err != nil {
 		return nil, ErrSocketError
 	}
 
