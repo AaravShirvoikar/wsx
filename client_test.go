@@ -10,7 +10,7 @@ const echoServerURL = "localhost:6970"
 func TestWebSocketClient(t *testing.T) {
 	client := NewWebSocketClient(echoServerURL)
 	if err := client.Connect(); err != nil {
-		log.Fatal("failed to connect:", err)
+		log.Fatalf("failed to connect: %v", err)
 	}
 
 	msg := []byte("random data")

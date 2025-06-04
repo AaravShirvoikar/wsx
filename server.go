@@ -30,15 +30,10 @@ func (ws *WebSocketServer) ListenAndServe() error {
 	}
 	ws.listener = ln
 
-	go ws.acceptLoop()
-	return nil
-}
-
-func (ws *WebSocketServer) acceptLoop() {
 	for {
 		conn, err := ws.listener.Accept()
 		if errors.Is(err, net.ErrClosed) {
-			return
+			break
 		}
 		if err != nil {
 			fmt.Println("error accepting connection:", err)
@@ -49,6 +44,8 @@ func (ws *WebSocketServer) acceptLoop() {
 		wsconn := NewWSConn(conn, false)
 		go ws.handleConn(wsconn)
 	}
+
+	return nil
 }
 
 func (ws *WebSocketServer) handleConn(wsconn *WSConn) {

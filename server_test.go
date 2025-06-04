@@ -9,16 +9,17 @@ const serverURL = "localhost:6971"
 
 func TestWebSocketServer(t *testing.T) {
 	ws := NewWebSocketServer(serverURL)
-	err := ws.ListenAndServe()
-	if err != nil {
-		t.Errorf("failed to start server")
-	}
+	go func() {
+		err := ws.ListenAndServe()
+		if err != nil {
+			t.Errorf("failed to start server")
+		}
+	}()
 
 	client := NewWebSocketClient(serverURL)
 	if err := client.Connect(); err != nil {
-		t.Errorf("failed to connect: %v", err)
+		t.Fatalf("failed to connect: %v", err)
 	}
-
 	time.Sleep(100 * time.Millisecond)
 
 	resp, err := client.ReadMessage()
@@ -29,6 +30,6 @@ func TestWebSocketServer(t *testing.T) {
 	respMsp := resp.Chunks.Payload.String()
 	expectedMsg := "random data"
 	if respMsp != expectedMsg {
-		t.Errorf("expected response %s, got %s", expectedMsg, respMsp)
+		t.Fatalf("expected response %s, got %s", expectedMsg, respMsp)
 	}
 }
