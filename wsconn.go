@@ -10,8 +10,9 @@ import (
 )
 
 var (
-	ErrSocketError = errors.New("socket error")
-	ErrServerClose = errors.New("server close error")
+	ErrSocketError   = errors.New("socket error")
+	ErrServerClose   = errors.New("server close error")
+	ErrProtocolError = errors.New("protocol error")
 )
 
 type WSConn struct {
@@ -26,7 +27,15 @@ func NewWSConn(conn net.Conn, isClient bool) *WSConn {
 	}
 }
 
-func (w *WSConn) Close() error {
+func (w *WSConn) Close(codes ...uint16) error {
+	code := uint16(1000)
+	if len(codes) > 0 {
+		code = codes[0]
+	}
+	closePayload := make([]byte, 2)
+	closePayload[0] = byte(code >> 8)
+	closePayload[1] = byte(code & 0xFF)
+	w.sendFrame(true, OPCODE_CLOSE, closePayload)
 	return w.conn.Close()
 }
 
@@ -102,6 +111,11 @@ func (w *WSConn) readFrame() (*Frame, error) {
 	}
 
 	fin := header[0]&0x80 != 0
+	rsv := header[0] & 0x70
+	if rsv != 0 {
+		w.Close(1002)
+		return nil, ErrProtocolError
+	}
 	opcode := Opcode(header[0] & 0x0F)
 
 	var payloadLen int
@@ -120,6 +134,11 @@ func (w *WSConn) readFrame() (*Frame, error) {
 		payloadLen = int(extLen)
 	default:
 		payloadLen = int(header[1] & 0x7F)
+	}
+
+	if opcode.isControl() && payloadLen > 125 {
+		w.Close(1002)
+		return nil, ErrProtocolError
 	}
 
 	var mask []byte
@@ -165,6 +184,7 @@ func (w *WSConn) ReadMessage() (*Message, error) {
 		if frame.Opcode.isControl() {
 			switch frame.Opcode {
 			case OPCODE_CLOSE:
+				w.sendFrame(true, OPCODE_CLOSE, frame.Payload.Bytes())
 				return nil, ErrServerClose
 			case OPCODE_PING:
 				if err := w.sendFrame(true, OPCODE_PONG, frame.Payload.Bytes()); err != nil {

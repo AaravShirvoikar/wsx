@@ -72,7 +72,7 @@ func (ws *WebSocketServer) handleConn(wsconn *WSConn) {
 
 		fmt.Printf("Received message from %v: %s\n", wsconn.conn.RemoteAddr(), msgStr)
 
-		if err := wsconn.SendMessage(OPCODE_TEXT, []byte(msgStr)); err != nil {
+		if err := wsconn.SendMessage(msg.Opcode, []byte(msgStr)); err != nil {
 			fmt.Printf("Error sending echo to %v: %v\n", wsconn.conn.RemoteAddr(), err)
 			break
 		}
