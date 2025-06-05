@@ -68,7 +68,7 @@ func (ws *WebSocketServer) handleConn(wsconn *WSConn) {
 			}
 			break
 		}
-		msgStr := msg.Chunks.Payload.String()
+		msgStr := msg.Payload.String()
 
 		fmt.Printf("Received message from %v: %s\n", wsconn.conn.RemoteAddr(), msgStr)
 

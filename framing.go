@@ -23,12 +23,7 @@ type Frame struct {
 	Payload bytes.Buffer
 }
 
-type MessageChunk struct {
-	Next    *MessageChunk
-	Payload bytes.Buffer
-}
-
 type Message struct {
-	Opcode Opcode
-	Chunks *MessageChunk
+	Opcode  Opcode
+	Payload bytes.Buffer
 }

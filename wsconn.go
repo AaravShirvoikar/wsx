@@ -154,7 +154,7 @@ func (w *WSConn) SendMessage(opcode Opcode, payload []byte) error {
 
 func (w *WSConn) ReadMessage() (*Message, error) {
 	var msg Message
-	var lastChunk *MessageChunk
+	var messagePayload bytes.Buffer
 
 	for {
 		frame, err := w.readFrame()
@@ -174,19 +174,16 @@ func (w *WSConn) ReadMessage() (*Message, error) {
 			continue
 		}
 
-		chunk := &MessageChunk{Payload: *bytes.NewBuffer(frame.Payload.Bytes())}
-		if lastChunk == nil {
-			msg.Chunks = chunk
+		if messagePayload.Len() == 0 {
 			msg.Opcode = frame.Opcode
-		} else {
-			lastChunk.Next = chunk
 		}
-		lastChunk = chunk
+		messagePayload.Write(frame.Payload.Bytes())
 
 		if frame.Fin {
 			break
 		}
 	}
 
+	msg.Payload = messagePayload
 	return &msg, nil
 }

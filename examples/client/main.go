@@ -8,7 +8,8 @@ import (
 )
 
 func main() {
-	client := wsx.NewWebSocketClient("localhost:6970")
+	addr := "localhost:9001"
+	client := wsx.NewWebSocketClient(addr)
 	if err := client.Connect(); err != nil {
 		log.Fatalf("Failed to connect: %v", err)
 	}
@@ -25,6 +26,6 @@ func main() {
 		log.Fatalf("Failed to read message: %v", err)
 	}
 
-	respMsg := resp.Chunks.Payload.String()
+	respMsg := resp.Payload.String()
 	fmt.Printf("Message received: %v\n", respMsg)
 }
