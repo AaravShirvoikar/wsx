@@ -12,14 +12,18 @@ import (
 
 var ErrServerHandshake = errors.New("server handshake error")
 
+type Handler func(wsconn *WSConn)
+
 type WebSocketServer struct {
 	listenAddr string
 	listener   net.Listener
+	handler    Handler
 }
 
-func NewWebSocketServer(listenAddr string) *WebSocketServer {
+func NewWebSocketServer(listenAddr string, handler Handler) *WebSocketServer {
 	return &WebSocketServer{
 		listenAddr: listenAddr,
+		handler:    handler,
 	}
 }
 
@@ -58,27 +62,7 @@ func (ws *WebSocketServer) handleConn(wsconn *WSConn) {
 
 	fmt.Printf("Connection established with %v\n", wsconn.conn.RemoteAddr())
 
-	for {
-		msg, err := wsconn.ReadMessage()
-		if err != nil {
-			if errors.Is(err, ErrSocketError) || errors.Is(err, ErrServerClose) {
-				fmt.Printf("Client %v closed connection\n", wsconn.conn.RemoteAddr())
-			} else {
-				fmt.Printf("Error reading message from %v: %v\n", wsconn.conn.RemoteAddr(), err)
-			}
-			break
-		}
-		msgStr := msg.Payload.String()
-
-		fmt.Printf("Received message from %v: %s\n", wsconn.conn.RemoteAddr(), msgStr)
-
-		if err := wsconn.SendMessage(msg.Opcode, []byte(msgStr)); err != nil {
-			fmt.Printf("Error sending echo to %v: %v\n", wsconn.conn.RemoteAddr(), err)
-			break
-		}
-
-		fmt.Printf("Echoed message back to %v\n", wsconn.conn.RemoteAddr())
-	}
+	ws.handler(wsconn)
 }
 
 func (ws *WebSocketServer) handshake(wsconn *WSConn) error {

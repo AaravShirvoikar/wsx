@@ -27,6 +27,10 @@ func NewWSConn(conn net.Conn, isClient bool) *WSConn {
 	}
 }
 
+func (w *WSConn) Addr() net.Addr {
+	return w.conn.RemoteAddr()
+}
+
 func (w *WSConn) Close(codes ...uint16) error {
 	code := uint16(1000)
 	if len(codes) > 0 {
