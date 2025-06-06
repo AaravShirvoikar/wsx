@@ -17,6 +17,10 @@ func (o Opcode) isControl() bool {
 	return 0x8 <= o && o <= 0xF
 }
 
+func (o Opcode) isReserved() bool {
+	return 0x3 <= o && o <= 0x7 || 0xB <= o && o <= 0xF
+}
+
 type Frame struct {
 	Fin     bool
 	Opcode  Opcode

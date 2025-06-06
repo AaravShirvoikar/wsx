@@ -43,6 +43,10 @@ func (w *WSConn) Close(codes ...uint16) error {
 	return w.conn.Close()
 }
 
+func (w *WSConn) Drop() error {
+	return w.conn.Close()
+}
+
 func (w *WSConn) sendFrame(fin bool, opcode Opcode, payload []byte) error {
 	var header byte
 	if fin {
@@ -142,6 +146,11 @@ func (w *WSConn) readFrame() (*Frame, error) {
 
 	if opcode.isControl() && payloadLen > 125 {
 		w.Close(1002)
+		return nil, ErrProtocolError
+	}
+
+	if opcode.isReserved() {
+		w.Drop()
 		return nil, ErrProtocolError
 	}
 
