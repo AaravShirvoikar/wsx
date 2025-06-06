@@ -7,6 +7,7 @@ import (
 	"io"
 	"math/rand"
 	"net"
+	"unicode/utf8"
 )
 
 var (
@@ -31,15 +32,16 @@ func (w *WSConn) Addr() net.Addr {
 	return w.conn.RemoteAddr()
 }
 
+func (w *WSConn) isValidCloseCode(code uint16) bool {
+	return (code >= 1000 && code <= 1003) ||
+		(code >= 1007 && code <= 1011) ||
+		(code >= 3000 && code <= 4999)
+}
+
 func (w *WSConn) Close(codes ...uint16) error {
 	code := uint16(1000)
 	if len(codes) > 0 {
 		code = codes[0]
-		if !((code >= 1000 && code <= 1003) ||
-			(code >= 1007 && code <= 1011) ||
-			(code >= 3000 && code <= 4999)) {
-			code = 1002
-		}
 	}
 	closePayload := make([]byte, 2)
 	closePayload[0] = byte(code >> 8)
@@ -199,6 +201,7 @@ func (w *WSConn) SendMessage(opcode Opcode, payload []byte) error {
 func (w *WSConn) ReadMessage() (*Message, error) {
 	var msg Message
 	var messagePayload bytes.Buffer
+	var started bool
 
 	for {
 		frame, err := w.readFrame()
@@ -209,13 +212,28 @@ func (w *WSConn) ReadMessage() (*Message, error) {
 		if frame.Opcode.isControl() {
 			switch frame.Opcode {
 			case OPCODE_CLOSE:
-				var closeCode uint16 = 1000
-				if frame.Payload.Len() >= 2 {
+				closeCode := uint16(1000)
+				payloadLen := frame.Payload.Len()
+
+				if payloadLen == 1 {
+					w.Close(1002)
+					return nil, ErrProtocolError
+				}
+
+				if payloadLen >= 2 {
 					payload := frame.Payload.Bytes()
 					closeCode = uint16(payload[0])<<8 | uint16(payload[1])
-				} else if frame.Payload.Len() == 1 {
-					closeCode = 1002
+					if payloadLen > 2 && !utf8.Valid(payload[2:]) {
+						w.Close(1002)
+						return nil, ErrProtocolError
+					}
 				}
+
+				if !w.isValidCloseCode(closeCode) {
+					w.Close(1002)
+					return nil, ErrProtocolError
+				}
+
 				w.Close(closeCode)
 				return nil, ErrConnectionClosed
 			case OPCODE_PING:
@@ -226,24 +244,30 @@ func (w *WSConn) ReadMessage() (*Message, error) {
 			continue
 		}
 
-		if frame.Opcode == OPCODE_CONT && messagePayload.Len() == 0 {
+		if frame.Opcode == OPCODE_CONT && !started {
 			w.Close(1002)
 			return nil, ErrProtocolError
 		}
 
-		if frame.Opcode != OPCODE_CONT && messagePayload.Len() > 0 {
+		if frame.Opcode != OPCODE_CONT && started {
 			w.Close(1002)
 			return nil, ErrProtocolError
 		}
 
-		if messagePayload.Len() == 0 {
+		if !started {
 			msg.Opcode = frame.Opcode
+			started = true
 		}
 		messagePayload.Write(frame.Payload.Bytes())
 
 		if frame.Fin {
 			break
 		}
+	}
+
+	if !utf8.Valid(messagePayload.Bytes()) && msg.Opcode != OPCODE_BIN {
+		w.Drop()
+		return nil, ErrProtocolError
 	}
 
 	msg.Payload = messagePayload
