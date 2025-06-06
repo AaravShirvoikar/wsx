@@ -35,6 +35,11 @@ func (w *WSConn) Close(codes ...uint16) error {
 	code := uint16(1000)
 	if len(codes) > 0 {
 		code = codes[0]
+		if !((code >= 1000 && code <= 1003) ||
+			(code >= 1007 && code <= 1011) ||
+			(code >= 3000 && code <= 4999)) {
+			code = 1002
+		}
 	}
 	closePayload := make([]byte, 2)
 	closePayload[0] = byte(code >> 8)
@@ -204,9 +209,14 @@ func (w *WSConn) ReadMessage() (*Message, error) {
 		if frame.Opcode.isControl() {
 			switch frame.Opcode {
 			case OPCODE_CLOSE:
-				if err := w.sendFrame(true, OPCODE_CLOSE, frame.Payload.Bytes()); err != nil {
-					return nil, err
+				var closeCode uint16 = 1000
+				if frame.Payload.Len() >= 2 {
+					payload := frame.Payload.Bytes()
+					closeCode = uint16(payload[0])<<8 | uint16(payload[1])
+				} else if frame.Payload.Len() == 1 {
+					closeCode = 1002
 				}
+				w.Close(closeCode)
 				return nil, ErrConnectionClosed
 			case OPCODE_PING:
 				if err := w.sendFrame(true, OPCODE_PONG, frame.Payload.Bytes()); err != nil {
