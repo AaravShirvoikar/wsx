@@ -8,7 +8,7 @@ import (
 )
 
 func main() {
-	addr := "localhost:9001"
+	addr := "127.0.0.1:9001"
 	server := wsx.NewWebSocketServer(addr, EchoHandler)
 
 	fmt.Printf("Server listening on %v\n", addr)
