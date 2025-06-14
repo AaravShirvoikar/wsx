@@ -12,22 +12,22 @@ import (
 
 var ErrServerHandshake = errors.New("server handshake error")
 
-type Handler func(wsconn *WSConn)
+type Handler func(wsconn *Conn)
 
-type WebSocketServer struct {
+type Server struct {
 	listenAddr string
 	listener   net.Listener
 	handler    Handler
 }
 
-func NewWebSocketServer(listenAddr string, handler Handler) *WebSocketServer {
-	return &WebSocketServer{
+func NewServer(listenAddr string, handler Handler) *Server {
+	return &Server{
 		listenAddr: listenAddr,
 		handler:    handler,
 	}
 }
 
-func (ws *WebSocketServer) ListenAndServe() error {
+func (ws *Server) ListenAndServe() error {
 	ln, err := net.Listen("tcp", ws.listenAddr)
 	if err != nil {
 		return err
@@ -45,14 +45,14 @@ func (ws *WebSocketServer) ListenAndServe() error {
 		}
 
 		fmt.Printf("Accepted connection from %v\n", conn.RemoteAddr())
-		wsconn := NewWSConn(conn, false)
+		wsconn := NewConn(conn, false)
 		go ws.handleConn(wsconn)
 	}
 
 	return nil
 }
 
-func (ws *WebSocketServer) handleConn(wsconn *WSConn) {
+func (ws *Server) handleConn(wsconn *Conn) {
 	defer wsconn.Close()
 
 	if err := ws.handshake(wsconn); err != nil {
@@ -65,7 +65,7 @@ func (ws *WebSocketServer) handleConn(wsconn *WSConn) {
 	ws.handler(wsconn)
 }
 
-func (ws *WebSocketServer) handshake(wsconn *WSConn) error {
+func (ws *Server) handshake(wsconn *Conn) error {
 	reader := bufio.NewReader(wsconn.conn)
 
 	headers := make(map[string]string)
@@ -95,9 +95,8 @@ func (ws *WebSocketServer) handshake(wsconn *WSConn) error {
 	handshake.WriteString("HTTP/1.1 101 Switching Protocols\r\n")
 	handshake.WriteString("Upgrade: websocket\r\n")
 	handshake.WriteString("Connection: Upgrade\r\n")
-	handshake.WriteString("Sec-WebSocket-Accept: ")
-	handshake.WriteString(ws.genSecAccept(secKey))
-	handshake.WriteString("\r\n\r\n")
+	handshake.WriteString("Sec-WebSocket-Accept: " + ws.genSecAccept(secKey) + "\r\n")
+	handshake.WriteString("\r\n")
 
 	if _, err := wsconn.conn.Write([]byte(handshake.String())); err != nil {
 		return err
@@ -106,7 +105,8 @@ func (ws *WebSocketServer) handshake(wsconn *WSConn) error {
 	return nil
 }
 
-func (ws *WebSocketServer) genSecAccept(secKey string) string {
-	hash := sha1.Sum(fmt.Appendf(nil, "%s258EAFA5-E914-47DA-95CA-C5AB0DC85B11", secKey))
+func (ws *Server) genSecAccept(secKey string) string {
+	guid := "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
+	hash := sha1.Sum(fmt.Appendf(nil, "%s%s", secKey, guid))
 	return base64.StdEncoding.EncodeToString(hash[:])
 }

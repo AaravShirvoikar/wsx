@@ -1,16 +1,14 @@
 package wsx
 
-import "bytes"
-
 type Opcode uint8
 
 const (
-	OPCODE_CONT  Opcode = 0x0
-	OPCODE_TEXT  Opcode = 0x1
-	OPCODE_BIN   Opcode = 0x2
-	OPCODE_CLOSE Opcode = 0x8
-	OPCODE_PING  Opcode = 0x9
-	OPCODE_PONG  Opcode = 0xA
+	OpcodeCont  Opcode = 0x0
+	OpcodeText  Opcode = 0x1
+	OpcodeBin   Opcode = 0x2
+	OpcodeClose Opcode = 0x8
+	OpcodePing  Opcode = 0x9
+	OpcodePong  Opcode = 0xA
 )
 
 func (o Opcode) isControl() bool {
@@ -21,13 +19,13 @@ func (o Opcode) isReserved() bool {
 	return 0x3 <= o && o <= 0x7 || 0xB <= o && o <= 0xF
 }
 
-type Frame struct {
-	Fin     bool
-	Opcode  Opcode
-	Payload bytes.Buffer
+type frame struct {
+	fin     bool
+	opcode  Opcode
+	payload []byte
 }
 
 type Message struct {
 	Opcode  Opcode
-	Payload bytes.Buffer
+	Payload []byte
 }

@@ -9,7 +9,7 @@ import (
 
 func main() {
 	addr := "127.0.0.1:9001"
-	server := wsx.NewWebSocketServer(addr, EchoHandler)
+	server := wsx.NewServer(addr, EchoHandler)
 
 	fmt.Printf("Server listening on %v\n", addr)
 	if err := server.ListenAndServe(); err != nil {
@@ -17,14 +17,14 @@ func main() {
 	}
 }
 
-func EchoHandler(wsconn *wsx.WSConn) {
+func EchoHandler(wsconn *wsx.Conn) {
 	for {
 		msg, err := wsconn.ReadMessage()
 		if err != nil {
 			fmt.Printf("Error reading message from %v: %v\n", wsconn.Addr(), err)
 			break
 		}
-		msgStr := msg.Payload.String()
+		msgStr := string(msg.Payload)
 
 		fmt.Printf("Received message from %v: %s\n", wsconn.Addr(), msgStr)
 
